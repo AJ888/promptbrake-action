@@ -1,5 +1,5 @@
-name: Red Team Your AI Chatbot
-description: Attack your chatbot before users do. Fails the build if it leaks secrets or obeys injected instructions.
+name: Security Test for AI Apps
+description: Find the failure before your customers do. Fails the build if your AI app leaks secrets or obeys injected instructions.
 author: PromptBrake
 branding:
   icon: shield

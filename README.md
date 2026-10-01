@@ -1,4 +1,4 @@
-# Red Team Your AI Chatbot
+# Security Test for AI Apps
 
 Catch a small set of prompt-injection and synthetic-secret leakage failures in your chatbot responses before release. Runs in GitHub Actions with no PromptBrake account, license, or hosted scanner connection.
 
