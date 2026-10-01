@@ -1,0 +1,29 @@
+name: Quick Check feedback
+description: Share a setup problem or a missing response check.
+body:
+  - type: markdown
+    attributes:
+      value: Do not include credentials, private endpoint URLs, customer data, or raw model responses. Issues are public.
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What happened?
+      options:
+        - Setup problem
+        - Unexpected check result
+        - Missing coverage
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Action version
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Expected and observed behavior
+      description: Include a minimal synthetic example if possible.
+    validations:
+      required: true

@@ -1,0 +1,47 @@
+name: Test Action
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - run: python -m unittest discover -s tests -v
+      - name: Start deterministic fixture
+        run: |
+          python examples/demo_server.py &
+          for attempt in {1..20}; do
+            if curl --silent --output /dev/null http://127.0.0.1:8765; then exit 0; fi
+            sleep 0.2
+          done
+          exit 1
+      - uses: ./
+        with:
+          target-url: http://127.0.0.1:8765/chat
+          config: examples/promptbrake.json
+      - name: Start failing deterministic fixture
+        run: |
+          python examples/demo_server.py --port 8766 --vulnerable &
+          for attempt in {1..20}; do
+            if curl --silent --output /dev/null http://127.0.0.1:8766; then exit 0; fi
+            sleep 0.2
+          done
+          exit 1
+      - uses: ./
+        id: failing
+        continue-on-error: true
+        with:
+          target-url: http://127.0.0.1:8766/chat
+          config: examples/promptbrake.json
+          artifact-name: expected-failure-report
+      - name: Verify failure gate and outputs
+        env:
+          OUTCOME: ${{ steps.failing.outcome }}
+          STATUS: ${{ steps.failing.outputs.status }}
+          FAILED: ${{ steps.failing.outputs.failed }}
+        run: test "$OUTCOME" = failure && test "$STATUS" = fail && test "$FAILED" = 10

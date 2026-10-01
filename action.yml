@@ -1,0 +1,69 @@
+name: PromptBrake AI Security Quick Check
+description: Check chatbot responses for prompt injection and synthetic secret leakage, with minimal reports and a CI gate.
+author: PromptBrake
+branding:
+  icon: shield
+  color: blue
+inputs:
+  target-url:
+    description: Your authorized staging or loopback chatbot HTTP endpoint.
+    required: true
+  config:
+    description: Path to the JSON request, response, baseline, and synthetic-marker configuration.
+    default: promptbrake.json
+  groups:
+    description: injection, leakage, or both.
+    default: both
+  auth-token:
+    description: Optional bearer token from a GitHub secret. Never commit credentials.
+    required: false
+  timeout:
+    description: Per-socket timeout in seconds, from 1 to 60. Set a job timeout too.
+    default: '20'
+  artifact-name:
+    description: Artifact name; use distinct names for multiple invocations in one workflow.
+    default: promptbrake-quick-check
+outputs:
+  status:
+    description: pass, fail, or inconclusive.
+    value: ${{ steps.scan.outputs.status }}
+  passed:
+    description: Number of passed checks.
+    value: ${{ steps.scan.outputs.pass }}
+  failed:
+    description: Number of failed checks.
+    value: ${{ steps.scan.outputs.fail }}
+  inconclusive:
+    description: Number of inconclusive checks.
+    value: ${{ steps.scan.outputs.inconclusive }}
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@v6
+      with:
+        python-version: '3.11'
+    - id: prepare
+      shell: bash
+      run: |
+        directory=$(mktemp -d "$RUNNER_TEMP/promptbrake.XXXXXX")
+        echo "directory=$directory" >> "$GITHUB_OUTPUT"
+    - id: scan
+      shell: bash
+      env:
+        PB_ACTION_PATH: ${{ github.action_path }}
+        PB_TARGET_URL: ${{ inputs.target-url }}
+        PB_CONFIG: ${{ inputs.config }}
+        PB_GROUPS: ${{ inputs.groups }}
+        PB_AUTH_TOKEN: ${{ inputs.auth-token }}
+        PB_TIMEOUT: ${{ inputs.timeout }}
+        PB_REPORT_DIR: ${{ steps.prepare.outputs.directory }}
+      run: python "$PB_ACTION_PATH/quick_check.py"
+    - uses: actions/upload-artifact@v4
+      if: ${{ always() && steps.prepare.outputs.directory != '' }}
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: |
+          ${{ steps.prepare.outputs.directory }}/results.json
+          ${{ steps.prepare.outputs.directory }}/summary.md
+        if-no-files-found: warn
+        retention-days: 7
