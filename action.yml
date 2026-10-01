@@ -1,5 +1,5 @@
-name: Prompt Injection & Leak Test for AI Chatbots
-description: 10 prompt-injection and secret-leak attacks on your chatbot, every push. Fails the build if it caves. No account.
+name: Red Team Your AI Chatbot
+description: Attack your chatbot before users do. Fails the build if it leaks secrets or obeys injected instructions.
 author: PromptBrake
 branding:
   icon: shield
