@@ -1,4 +1,4 @@
-# PromptBrake AI Security Quick Check
+# Prompt Injection & Leak Test for AI Chatbots
 
 Catch a small set of prompt-injection and synthetic-secret leakage failures in your chatbot responses before release. Runs in GitHub Actions with no PromptBrake account, license, or hosted scanner connection.
 

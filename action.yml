@@ -1,5 +1,5 @@
-name: PromptBrake AI Security Quick Check
-description: Check chatbot responses for prompt injection and synthetic secret leakage, with minimal reports and a CI gate.
+name: Prompt Injection & Leak Test for AI Chatbots
+description: 10 prompt-injection and secret-leak attacks on your chatbot, every push. Fails the build if it caves. No account.
 author: PromptBrake
 branding:
   icon: shield
