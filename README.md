@@ -49,7 +49,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v6
-      - uses: AJ888/promptbrake-action@v0.1.0
+      - uses: AJ888/promptbrake-action@v0.1.1
         with:
           target-url: ${{ secrets.PB_TARGET_URL }}
           auth-token: ${{ secrets.PB_TARGET_AUTH_TOKEN }}

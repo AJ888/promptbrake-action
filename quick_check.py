@@ -12,7 +12,7 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode, urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
-VERSION = '0.1.0'
+VERSION = '0.1.1'
 MAX_RESPONSE = 1_048_576
 
 

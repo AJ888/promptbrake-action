@@ -1,5 +1,5 @@
 name: Security Test for AI Apps
-description: Find the failure before your customers do. Fails the build if your AI app leaks secrets or obeys injected instructions.
+description: Test AI app responses for prompt injection and synthetic-secret leaks. Fail CI when configured response checks fail.
 author: PromptBrake
 branding:
   icon: shield
