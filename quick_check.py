@@ -12,7 +12,7 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode, urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
-VERSION = '0.1.1'
+VERSION = '0.2.0'
 MAX_RESPONSE = 1_048_576
 
 
@@ -41,8 +41,8 @@ def replace_prompt(value, prompt):
 
 def load_settings():
     groups = os.getenv('PB_GROUPS', 'both')
-    if groups not in {'injection', 'leakage', 'both'}:
-        raise SetupError('Choose injection, leakage, or both.')
+    if groups not in {'injection', 'leakage', 'both', 'tools'}:
+        raise SetupError('Choose injection, leakage, both, or tools.')
     url = os.getenv('PB_TARGET_URL', '')
     try:
         parsed = urlsplit(url)
@@ -78,6 +78,8 @@ def load_settings():
     if (not isinstance(request, dict) or
             replace_prompt(request, 'PB_TEMPLATE_CHECK') == request):
         raise SetupError('The request object must contain {{prompt}} in a string value.')
+    if groups == 'tools':
+        return config, groups, url, token, timeout
     path = config.get('response_path')
     if not isinstance(path, str) or not re.fullmatch(r'[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*', path):
         raise SetupError('response_path must be a dotted JSON path, such as choices.0.message.content.')
@@ -183,13 +185,21 @@ def render_summary(report):
     plans = f'https://promptbrake.com/plans?{campaign}'
     lines = ['## PromptBrake Quick Check', '', f'**Result: {status.upper()}**', '',
              f"{counts['pass']} passed · {counts['fail']} failed · {counts['inconclusive']} inconclusive", '',
-             'Checks use case-insensitive literal matching. Passing is not a security certification; '
+             'Response checks use case-insensitive literal matching. Passing is not a security certification; '
              'backend actions, encoded leaks, and semantic policy violations are not verified.', '']
+    if any(item.get('group') == 'tools' for item in report['results']):
+        lines.extend(['Tool checks verify captured application dispatch invocations and typed arguments. '
+                      'They do not prove backend effects or permission enforcement. Missing evidence cannot pass.', ''])
     if report.get('error'):
         lines.extend([report['error'], ''])
     lines.extend(['| Check | Group | Result | Detail |', '| --- | --- | --- | --- |'])
     for item in report['results']:
-        lines.append(f"| {item['name']} | {item['group']} | {item['status']} | {item['reason']} |")
+        detail = item['reason']
+        if item.get('group') == 'tools':
+            detail += f" Tool: {item['tool']}; rule: {item['rule_type']}; observed: {item['calls_observed']}; capture complete: {item['capture_complete']}."
+            if item.get('path'):
+                detail += f" Argument path: {item['path']}."
+        lines.append(f"| {item['name']} | {item['group']} | {item['status']} | {detail} |")
     if status == 'fail':
         lines.extend(['', '### Fix and retest', '',
                       'Review the failed checks, strengthen your target policy or data boundary, then rerun this free check. '
@@ -216,7 +226,18 @@ def main():
     try:
         config, groups, url, token, timeout = load_settings()
         report['groups'] = groups
-        report['results'] = run_checks(config, groups, url, token, timeout)
+        tool_path = os.getenv('PB_TOOL_TESTS', '')
+        trace_path = os.getenv('PB_TRACE_PATH', 'promptbrake_trace')
+        tool_cases = None
+        if groups == 'tools' or tool_path:
+            from tool_check import load_pack, run_tool_checks
+            try:
+                tool_cases = load_pack(tool_path, trace_path)
+            except (OSError, ValueError, RecursionError, UnicodeError):
+                raise SetupError('Supply a valid tool pack of at most 512 KiB and a simple trace path.') from None
+        report['results'] = [] if groups == 'tools' else run_checks(config, groups, url, token, timeout)
+        if tool_cases:
+            report['results'].extend(run_tool_checks(tool_cases, config, url, token, timeout, trace_path))
         statuses = {item['status'] for item in report['results']}
         report['status'] = 'inconclusive' if 'inconclusive' in statuses else ('fail' if 'fail' in statuses else 'pass')
     except SetupError as error:

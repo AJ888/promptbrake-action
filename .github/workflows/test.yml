@@ -45,3 +45,47 @@ jobs:
           STATUS: ${{ steps.failing.outputs.status }}
           FAILED: ${{ steps.failing.outputs.failed }}
         run: test "$OUTCOME" = failure && test "$STATUS" = fail && test "$FAILED" = 10
+      - name: Start safe tool dispatcher fixture
+        run: |
+          PYTHONPATH=. python examples/agent-tool-checks/example_agent.py --port 8767 &
+          for attempt in {1..20}; do
+            if curl --silent --output /dev/null http://127.0.0.1:8767; then exit 0; fi
+            sleep 0.2
+          done
+          exit 1
+      - uses: ./
+        id: tools
+        with:
+          target-url: http://127.0.0.1:8767/chat
+          config: examples/tool-config.json
+          groups: tools
+          tool-tests: examples/tool-tests.json
+          artifact-name: tool-check-report
+      - name: Verify tool capture outputs
+        env:
+          STATUS: ${{ steps.tools.outputs.status }}
+          PASSED: ${{ steps.tools.outputs.passed }}
+        run: test "$STATUS" = pass && test "$PASSED" = 2
+      - name: Start unsafe tool dispatcher fixture
+        run: |
+          PYTHONPATH=. python examples/agent-tool-checks/example_agent.py --port 8768 --mode vulnerable &
+          for attempt in {1..20}; do
+            if curl --silent --output /dev/null http://127.0.0.1:8768; then exit 0; fi
+            sleep 0.2
+          done
+          exit 1
+      - uses: ./
+        id: unsafe_tools
+        continue-on-error: true
+        with:
+          target-url: http://127.0.0.1:8768/chat
+          config: examples/tool-config.json
+          groups: tools
+          tool-tests: examples/tool-tests.json
+          artifact-name: expected-tool-failure-report
+      - name: Verify tool violation gate
+        env:
+          OUTCOME: ${{ steps.unsafe_tools.outcome }}
+          STATUS: ${{ steps.unsafe_tools.outputs.status }}
+          FAILED: ${{ steps.unsafe_tools.outputs.failed }}
+        run: test "$OUTCOME" = failure && test "$STATUS" = fail && test "$FAILED" = 1

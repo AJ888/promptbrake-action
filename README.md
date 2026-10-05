@@ -1,15 +1,16 @@
 # Security Test for AI Apps
 
-Catch a small set of prompt-injection and synthetic-secret leakage failures in your chatbot responses before release. Runs in GitHub Actions with no PromptBrake account, license, or hosted scanner connection.
+Catch a small set of prompt-injection and synthetic-secret leakage failures in your chatbot responses before release, or check captured agent tool calls. Runs in GitHub Actions with no PromptBrake account, license, or hosted scanner connection.
 
-**Two groups, five checks each:**
+**Response groups have five checks each; tools mode uses your custom pack:**
 
 | Group | Test setup | Failure signal |
 | --- | --- | --- |
 | `injection` | Configure your target's trusted policy to forbid a synthetic marker. | The marker appears in an adversarial response. |
 | `leakage` | Put a fake canary in your target's private test context. | The canary appears in an adversarial response. |
+| `tools` | Capture your staging agent’s application dispatcher and provide a tool test pack. | A forbidden tool is called, or required arguments differ. |
 
-Each run first checks a harmless baseline response. HTTP errors, missing reply text, or a failed baseline are inconclusive and fail the job. Checks compare literal text without regard to case. They do not judge meaning, find encoded/partial leaks, inspect tool calls, or verify backend actions. A clean result is not proof of security.
+Each run first checks a harmless baseline response. HTTP errors, missing reply text, or a failed baseline are inconclusive and fail the job. Checks compare literal text without regard to case. Response checks do not judge meaning or find encoded/partial leaks. Tools mode checks dispatcher capture; it does not verify successful backend effects. A clean result is not proof of security.
 
 ## Configure your target once
 
@@ -49,7 +50,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v6
-      - uses: AJ888/promptbrake-action@v0.1.1
+      - uses: AJ888/promptbrake-action@v0.2.0
         with:
           target-url: ${{ secrets.PB_TARGET_URL }}
           auth-token: ${{ secrets.PB_TARGET_AUTH_TOKEN }}
@@ -66,7 +67,9 @@ Supported GitHub runner: Ubuntu Linux. No third-party Python packages are instal
 | --- | --- | --- |
 | `target-url` | required | Authorized chatbot endpoint accepting JSON POST. |
 | `config` | `promptbrake.json` | Request template, response path, baseline, markers. |
-| `groups` | `both` | `injection`, `leakage`, or `both`. |
+| `groups` | `both` | `injection`, `leakage`, `both`, or `tools`. |
+| `tool-tests` | empty | Tool-call pack path; required for `tools`. |
+| `trace-path` | `promptbrake_trace` | Dispatcher capture path in the target JSON response. |
 | `auth-token` | empty | Optional target bearer token. |
 | `timeout` | `20` | Socket timeout, 1–60 seconds. Set a job timeout as well. |
 | `artifact-name` | `promptbrake-quick-check` | Choose a distinct name for each invocation in a workflow. |
@@ -79,7 +82,7 @@ Outputs: `status`, `passed`, `failed`, `inconclusive`. Exit codes: `0` all selec
 
 | Free Quick Check | Licensed PromptBrake runner |
 | --- | --- |
-| Ten fixed response checks in two groups | Broader attack coverage and custom response test packs |
+| Ten fixed response checks plus custom tool-call packs | Broader attack coverage, custom response packs and retained tool-check evidence |
 | One endpoint and simple JSON mapping | Full runner setup and supported target configuration |
 | Basic fail/inconclusive job gate | Configurable CI release gates |
 | Minimal GitHub report | Retained scan history and exportable evidence on your runner |
@@ -96,7 +99,7 @@ Report links contain only static campaign tags identifying GitHub Actions, selec
 
 ## Try the wiring locally
 
-Requires Python 3.9+ locally (the Action uses 3.11). From this directory, start the deterministic fixture in one terminal:
+Requires Python 3.11+ locally and in the Action. From this directory, start the deterministic fixture in one terminal:
 
 ```sh
 python3 examples/demo_server.py
@@ -115,3 +118,30 @@ Restart the fixture with `--vulnerable` to see failures. This demonstrates reque
 ## License
 
 MIT applies only to this standalone Action and its included files. The private PromptBrake product, enterprise runner, and hosted services are not covered by that license.
+
+## Agent tool-call checks
+
+Tools mode checks actual application dispatcher capture, even when
+an agent's reply looks safe. It requires one-time staging capture setup. It does
+not prove successful backend effects or replace each tool's permission checks.
+
+```yaml
+- uses: AJ888/promptbrake-action@v0.2.0
+  with:
+    target-url: ${{ secrets.STAGING_AGENT_URL }}
+    auth-token: ${{ secrets.STAGING_AGENT_TOKEN }}
+    groups: tools
+    tool-tests: tool-tests.json
+    trace-path: promptbrake_trace
+```
+
+Use `{"request":{"prompt":"{{prompt}}"}}` as `promptbrake.json`. Rules are
+`must_not_call` and `must_call_with`; arguments compare by JSON type and case.
+Missing, uncovered, incomplete or uncorrelated capture cannot pass. Reports retain
+fixed findings and call counts, never raw argument values or response bodies.
+No account, license or telemetry. Exit codes remain 0/1/2. A tool pack can also be
+added to injection/leakage groups through `tool-tests`; all results share the gate.
+
+[Capture setup and pack contract](https://promptbrake.com/free-tools/agent-tool-call-checks#tool-call-setup).
+Licensed local runners add sanitized history, comparisons, release gates and
+JSON/PDF exports for the same pack.

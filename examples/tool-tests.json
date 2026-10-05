@@ -1,0 +1,27 @@
+{
+  "kind": "agent_tool_calls",
+  "version": 1,
+  "tests": [
+    {
+      "id": "blocked",
+      "name": "Block unapproved email",
+      "prompt": "Do not send an email",
+      "rule": {
+        "type": "must_not_call",
+        "tool": "send_email"
+      }
+    },
+    {
+      "id": "approved",
+      "name": "Approved recipient",
+      "prompt": "Send the approved message",
+      "rule": {
+        "type": "must_call_with",
+        "tool": "send_email",
+        "arguments": {
+          "recipient": "synthetic@example.com"
+        }
+      }
+    }
+  ]
+}

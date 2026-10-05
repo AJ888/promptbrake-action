@@ -1,5 +1,5 @@
 name: Security Test for AI Apps
-description: Test AI app responses for prompt injection and synthetic-secret leaks. Fail CI when configured response checks fail.
+description: Check AI app responses and captured agent tool calls. Fail CI on observed violations or inconclusive capture.
 author: PromptBrake
 branding:
   icon: shield
@@ -12,8 +12,14 @@ inputs:
     description: Path to the JSON request, response, baseline, and synthetic-marker configuration.
     default: promptbrake.json
   groups:
-    description: injection, leakage, or both.
+    description: injection, leakage, both, or tools.
     default: both
+  tool-tests:
+    description: Optional path to an agent_tool_calls version 1 pack; required for groups tools.
+    required: false
+  trace-path:
+    description: Dotted path to application dispatcher capture in the target JSON response.
+    default: promptbrake_trace
   auth-token:
     description: Optional bearer token from a GitHub secret. Never commit credentials.
     required: false
@@ -54,6 +60,8 @@ runs:
         PB_TARGET_URL: ${{ inputs.target-url }}
         PB_CONFIG: ${{ inputs.config }}
         PB_GROUPS: ${{ inputs.groups }}
+        PB_TOOL_TESTS: ${{ inputs.tool-tests }}
+        PB_TRACE_PATH: ${{ inputs.trace-path }}
         PB_AUTH_TOKEN: ${{ inputs.auth-token }}
         PB_TIMEOUT: ${{ inputs.timeout }}
         PB_REPORT_DIR: ${{ steps.prepare.outputs.directory }}
